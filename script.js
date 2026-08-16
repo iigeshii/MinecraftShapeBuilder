@@ -322,37 +322,38 @@ function buildDomeLayers(baseDiameter, domeHeight) {
   const height = Math.max(2, Number(domeHeight) || 15);
   const radius = base / 2;
   const rows = Math.max(2, height);
+  const gridSize = Math.max(base + 4, 24);
+  const cx = (gridSize - 1) / 2;
   const layersContainer = document.getElementById('domeLayers');
   if (!layersContainer) return;
 
   layersContainer.innerHTML = '';
 
-  for (let layer = 0; layer < rows; layer += 1) {
+  for (let level = 1; level <= rows; level += 1) {
+    const layer = rows - level;
     const normalizedY = (rows - 1 - layer) / Math.max(rows - 1, 1);
     const yOffset = normalizedY * radius;
     const sliceRadius = Math.sqrt(Math.max(0, radius * radius - yOffset * yOffset));
     const sliceDiameter = Math.max(1, Math.round(sliceRadius * 2));
-    const gridSize = Math.max(sliceDiameter + 4, 20);
-    const cx = (gridSize - 1) / 2;
 
     const layerDiv = document.createElement('div');
     layerDiv.className = 'dome-layer';
 
     const label = document.createElement('div');
     label.className = 'layer-label';
-    label.textContent = `Level ${rows - layer} (diameter: ${sliceDiameter})`;
+    label.textContent = `Level ${level} (diameter: ${sliceDiameter})`;
 
     const layerGrid = document.createElement('div');
     layerGrid.className = 'grid';
 
     const outerRadius = sliceDiameter / 2;
-    const innerRadius = Math.max(outerRadius - 1, 0.001);
+    const innerRadius = outerRadius > 1 ? outerRadius - 1 : -1;
 
     const matrix = makeGridFromPredicate(gridSize, gridSize, (row, col) => {
       const dx = col - cx;
       const dy = row - cx;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance <= outerRadius && distance > innerRadius;
+      return distance <= outerRadius + 0.5 && distance > innerRadius;
     });
 
     renderMatrix(numberRuns(matrix, numberingMode), layerGrid);
@@ -474,7 +475,7 @@ function renderDomeTab() {
       ${legendBlock()}
       <h3 class="section-title">Full Dome Profile</h3>
       <p class="helper-text">Each row shows one horizontal slice; the circle shrinks toward the top.</p>
-      <div id="shapeGrid" class="grid" aria-label="Minecraft dome grid"></div>
+      <div class="grid-scroll"><div id="shapeGrid" class="grid" aria-label="Minecraft dome grid"></div></div>
       <h3 class="section-title" style="margin-top: 2rem;">Layer Breakdown</h3>
       <p class="helper-text">Individual circle for each building level:</p>
       <div id="domeLayers" class="dome-layers-container" aria-label="Dome layers breakdown"></div>

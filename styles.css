@@ -186,6 +186,11 @@ select {
   font-weight: 700;
 }
 
+.grid-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .grid {
   display: grid;
   gap: 0;
@@ -321,8 +326,8 @@ select {
 }
 
 .dome-layers-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 2rem;
   margin-top: 1rem;
 }
@@ -331,6 +336,8 @@ select {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .layer-label {
