@@ -1,8 +1,35 @@
+/*
+  Minecraft Shape Tool
+  Copyright (c) 2026 GeshGiezel (iigeshii)
+  Licensed under the MIT License. See LICENSE for details.
+*/
+
 const tabContainer = document.getElementById('tabs');
 const tabContent = document.getElementById('tabContent');
 
 const workbookTabs = ['Circle Builder', 'Ellipse Builder', 'Arch Builder', 'Dome Builder'];
 let activeTab = workbookTabs[0];
+let numberingMode = 'ltr';
+
+function numberingModeField() {
+  return `
+    <div class="field">
+      <label for="numberingMode">Numbering direction</label>
+      <select id="numberingMode">
+        <option value="ltr">Left to Right</option>
+        <option value="rtl">Right to Left</option>
+        <option value="ttb">Top to Bottom</option>
+        <option value="btt">Bottom to Top</option>
+        <option value="center-col">Distance from Center Column</option>
+        <option value="center-col-to">Distance to Center Column</option>
+        <option value="center-row">Distance from Center Row</option>
+        <option value="center-row-to">Distance to Center Row</option>
+        <option value="radial">Distance from Center (Radial)</option>
+        <option value="radial-to">Distance to Center (Radial)</option>
+      </select>
+    </div>
+  `;
+}
 
 function makeGridFromPredicate(cols, rows, predicate) {
   const matrix = Array.from({ length: rows }, () => Array(cols).fill(false));
@@ -14,48 +41,201 @@ function makeGridFromPredicate(cols, rows, predicate) {
   return matrix;
 }
 
-function numberRuns(matrix) {
+function computeRunLabels(isBlockValues) {
+  let run = 0;
+  let previousIsBlock = null;
+  return isBlockValues.map((isBlock) => {
+    run = isBlock === previousIsBlock ? run + 1 : 1;
+    previousIsBlock = isBlock;
+    return run;
+  });
+}
+
+function buildCenterRings(size) {
+  const innerLow = Math.floor((size - 1) / 2);
+  const innerHigh = Math.ceil((size - 1) / 2);
+  const rings = innerLow === innerHigh ? [[innerLow]] : [[innerLow, innerHigh]];
+
+  const maxRing = Math.max(innerLow, size - 1 - innerHigh);
+  for (let d = 1; d <= maxRing; d += 1) {
+    const ring = [];
+    if (innerLow - d >= 0) ring.push(innerLow - d);
+    if (innerHigh + d <= size - 1) ring.push(innerHigh + d);
+    if (ring.length) rings.push(ring);
+  }
+  return rings;
+}
+
+function numberRuns(matrix, mode = 'ltr') {
+  const rows = matrix.length;
+  const cols = matrix[0]?.length || 0;
   const numbered = matrix.map((row) => row.map((isBlock) => ({ isBlock, label: '' })));
 
-  for (let row = 0; row < numbered.length; row += 1) {
-    let run = 0;
-    for (let col = 0; col < numbered[row].length; col += 1) {
-      if (numbered[row][col].isBlock) {
-        run += 1;
-        numbered[row][col].label = run;
-      } else {
-        run = 0;
+  const applyOrder = (cells) => {
+    const labels = computeRunLabels(cells.map(({ row, col }) => numbered[row][col].isBlock));
+    cells.forEach(({ row, col }, index) => {
+      numbered[row][col].label = labels[index];
+    });
+  };
+
+  if (mode === 'ltr' || mode === 'rtl') {
+    for (let row = 0; row < rows; row += 1) {
+      const colOrder = Array.from({ length: cols }, (_, i) => (mode === 'ltr' ? i : cols - 1 - i));
+      applyOrder(colOrder.map((col) => ({ row, col })));
+    }
+    return numbered;
+  }
+
+  if (mode === 'ttb' || mode === 'btt') {
+    for (let col = 0; col < cols; col += 1) {
+      const rowOrder = Array.from({ length: rows }, (_, i) => (mode === 'ttb' ? i : rows - 1 - i));
+      applyOrder(rowOrder.map((row) => ({ row, col })));
+    }
+    return numbered;
+  }
+
+  if (mode === 'center-col' || mode === 'center-col-to') {
+    const colRings = buildCenterRings(cols);
+    const orderedRings = mode === 'center-col-to' ? colRings.slice().reverse() : colRings;
+    for (let row = 0; row < rows; row += 1) {
+      let run = 0;
+      let previousIsBlock = null;
+      orderedRings.forEach((ringCols) => {
+        const isBlock = numbered[row][ringCols[0]].isBlock;
+        run = isBlock === previousIsBlock ? run + 1 : 1;
+        previousIsBlock = isBlock;
+        ringCols.forEach((col) => {
+          numbered[row][col].label = run;
+        });
+      });
+    }
+    return numbered;
+  }
+
+  if (mode === 'center-row' || mode === 'center-row-to') {
+    const rowRings = buildCenterRings(rows);
+    const orderedRings = mode === 'center-row-to' ? rowRings.slice().reverse() : rowRings;
+    for (let col = 0; col < cols; col += 1) {
+      let run = 0;
+      let previousIsBlock = null;
+      orderedRings.forEach((ringRows) => {
+        const isBlock = numbered[ringRows[0]][col].isBlock;
+        run = isBlock === previousIsBlock ? run + 1 : 1;
+        previousIsBlock = isBlock;
+        ringRows.forEach((row) => {
+          numbered[row][col].label = run;
+        });
+      });
+    }
+    return numbered;
+  }
+
+  if (mode === 'radial' || mode === 'radial-to') {
+    const centerRow = (rows - 1) / 2;
+    const centerCol = (cols - 1) / 2;
+    const groups = new Map();
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const distance = Math.sqrt((row - centerRow) ** 2 + (col - centerCol) ** 2);
+        const ring = Math.round(distance);
+        if (!groups.has(ring)) groups.set(ring, []);
+        groups.get(ring).push({ row, col });
       }
     }
+
+    const ringOrder = Array.from(groups.keys()).sort((a, b) => a - b);
+    const orderedRingOrder = mode === 'radial-to' ? ringOrder.reverse() : ringOrder;
+
+    let run = 0;
+    let previousIsBlock = null;
+    orderedRingOrder.forEach((ring) => {
+      const cells = groups.get(ring);
+      const blockCount = cells.filter(({ row, col }) => numbered[row][col].isBlock).length;
+      const isBlock = blockCount * 2 >= cells.length;
+      run = isBlock === previousIsBlock ? run + 1 : 1;
+      previousIsBlock = isBlock;
+      cells.forEach(({ row, col }) => {
+        numbered[row][col].label = run;
+      });
+    });
+    return numbered;
   }
 
   return numbered;
 }
 
-function renderMatrix(matrix) {
-  const grid = document.getElementById('shapeGrid');
+function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
   if (!grid) return;
 
   const rows = matrix.length;
   const cols = matrix[0]?.length || 0;
 
-  grid.style.gridTemplateColumns = `repeat(${cols}, 18px)`;
+  const centerRowLow = Math.floor((rows - 1) / 2);
+  const centerRowHigh = Math.ceil((rows - 1) / 2);
+  const centerColLow = Math.floor((cols - 1) / 2);
+  const centerColHigh = Math.ceil((cols - 1) / 2);
+
+  if (!grid._dimState || grid._dimState.rows !== rows || grid._dimState.cols !== cols) {
+    grid._dimState = { rows, cols, dimmedRows: new Set(), dimmedCols: new Set() };
+  }
+  const { dimmedRows, dimmedCols } = grid._dimState;
+
+  grid.style.gridTemplateColumns = `18px repeat(${cols}, 18px)`;
   grid.innerHTML = '';
 
+  const corner = document.createElement('div');
+  corner.className = 'cell axis-label axis-corner';
+  grid.appendChild(corner);
+
+  for (let col = 0; col < cols; col += 1) {
+    const colHeader = document.createElement('div');
+    colHeader.className = `cell axis-label axis-x${dimmedCols.has(String(col)) ? ' dimmed' : ''}`;
+    colHeader.textContent = col + 1;
+    colHeader.dataset.col = col;
+    grid.appendChild(colHeader);
+  }
+
   for (let row = 0; row < rows; row += 1) {
+    const rowHeader = document.createElement('div');
+    rowHeader.className = `cell axis-label axis-y${dimmedRows.has(String(row)) ? ' dimmed' : ''}`;
+    rowHeader.textContent = row + 1;
+    rowHeader.dataset.row = row;
+    grid.appendChild(rowHeader);
+
     for (let col = 0; col < cols; col += 1) {
       const cellData = matrix[row][col];
+      const isCenter = (row === centerRowLow || row === centerRowHigh) && (col === centerColLow || col === centerColHigh);
+      const isDimmed = dimmedRows.has(String(row)) || dimmedCols.has(String(col));
       const cell = document.createElement('div');
-      cell.className = `cell ${cellData.isBlock ? 'block' : 'air'}`;
-
-      if (cellData.isBlock) {
-        cell.textContent = cellData.label || '';
-        cell.classList.add('block-label');
-      }
+      cell.className = `cell ${cellData.isBlock ? 'block' : 'air'} ${cellData.isBlock ? 'block-label' : 'air-label'}${isCenter ? ' center' : ''}${isDimmed ? ' dimmed' : ''}`;
+      cell.textContent = cellData.label || '';
+      cell.dataset.row = row;
+      cell.dataset.col = col;
 
       grid.appendChild(cell);
     }
   }
+
+  grid.onclick = (event) => {
+    const header = event.target.closest('.axis-x, .axis-y');
+    if (!header) return;
+
+    if (header.classList.contains('axis-x')) {
+      const col = header.dataset.col;
+      dimmedCols.has(col) ? dimmedCols.delete(col) : dimmedCols.add(col);
+      grid.querySelectorAll(`[data-col="${col}"]`).forEach((cell) => {
+        const dim = dimmedCols.has(col) || dimmedRows.has(cell.dataset.row);
+        cell.classList.toggle('dimmed', dim);
+      });
+    } else {
+      const row = header.dataset.row;
+      dimmedRows.has(row) ? dimmedRows.delete(row) : dimmedRows.add(row);
+      grid.querySelectorAll(`[data-row="${row}"]`).forEach((cell) => {
+        const dim = dimmedRows.has(row) || dimmedCols.has(cell.dataset.col);
+        cell.classList.toggle('dimmed', dim);
+      });
+    }
+  };
 }
 
 function buildCircleGrid(diameter, ringWidth) {
@@ -72,7 +252,7 @@ function buildCircleGrid(diameter, ringWidth) {
     return distance <= outerRadius && distance > innerRadius;
   });
 
-  renderMatrix(numberRuns(matrix));
+  renderMatrix(numberRuns(matrix, numberingMode));
 }
 
 function buildEllipseGrid(width, height, ringWidth) {
@@ -94,11 +274,11 @@ function buildEllipseGrid(width, height, ringWidth) {
     return outer && !inner;
   });
 
-  renderMatrix(numberRuns(matrix));
+  renderMatrix(numberRuns(matrix, numberingMode));
 }
 
 function buildArchGrid(totalWidth, totalHeight, wallThickness, deckThickness, shapeFactor) {
-  const cols = Math.max(1, Number(totalWidth) || 100);
+  const cols = Math.max(1, Number(totalWidth) || 80);
   const rows = Math.max(1, Number(totalHeight) || 20);
   const wall = Math.max(1, Number(wallThickness) || 2);
   const deck = Math.max(1, Number(deckThickness) || 2);
@@ -115,7 +295,7 @@ function buildArchGrid(totalWidth, totalHeight, wallThickness, deckThickness, sh
     return !isOpening;
   });
 
-  renderMatrix(numberRuns(matrix));
+  renderMatrix(numberRuns(matrix, numberingMode));
 }
 
 function buildDomeGrid(baseDiameter, domeHeight) {
@@ -134,7 +314,7 @@ function buildDomeGrid(baseDiameter, domeHeight) {
     return dx <= sliceRadius + 0.5;
   });
 
-  renderMatrix(numberRuns(matrix));
+  renderMatrix(numberRuns(matrix, numberingMode));
 }
 
 function buildDomeLayers(baseDiameter, domeHeight) {
@@ -164,7 +344,6 @@ function buildDomeLayers(baseDiameter, domeHeight) {
 
     const layerGrid = document.createElement('div');
     layerGrid.className = 'grid';
-    layerGrid.style.gridTemplateColumns = `repeat(${gridSize}, 18px)`;
 
     const outerRadius = sliceDiameter / 2;
     const innerRadius = Math.max(outerRadius - 1, 0.001);
@@ -176,25 +355,28 @@ function buildDomeLayers(baseDiameter, domeHeight) {
       return distance <= outerRadius && distance > innerRadius;
     });
 
-    const numberedMatrix = numberRuns(matrix);
-
-    for (let row = 0; row < numberedMatrix.length; row += 1) {
-      for (let col = 0; col < numberedMatrix[row].length; col += 1) {
-        const cellData = numberedMatrix[row][col];
-        const cell = document.createElement('div');
-        cell.className = `cell ${cellData.isBlock ? 'block' : 'air'}`;
-        if (cellData.isBlock) {
-          cell.textContent = cellData.label || '';
-          cell.classList.add('block-label');
-        }
-        layerGrid.appendChild(cell);
-      }
-    }
+    renderMatrix(numberRuns(matrix, numberingMode), layerGrid);
 
     layerDiv.appendChild(label);
     layerDiv.appendChild(layerGrid);
     layersContainer.appendChild(layerDiv);
   }
+}
+
+function legendBlock() {
+  return `
+    <div class="legend">
+      <span class="legend-dot dark"></span>
+      <span>Dark green = block</span>
+      <span class="legend-separator">·</span>
+      <span class="legend-dot light"></span>
+      <span>Light green = air</span>
+      <span class="legend-separator">·</span>
+      <span class="legend-dot center"></span>
+      <span>Amber outline = center block</span>
+    </div>
+    <p class="helper-text">Click a row or column header to gray it out and track your progress in-game.</p>
+  `;
 }
 
 function renderCircleTab() {
@@ -209,15 +391,10 @@ function renderCircleTab() {
           <label for="ringWidth">Ring width (blocks)</label>
           <input id="ringWidth" type="number" min="1" max="50" value="3" />
         </div>
+        ${numberingModeField()}
       </div>
 
-      <div class="legend">
-        <span class="legend-dot dark"></span>
-        <span>Dark green = block</span>
-        <span class="legend-separator">·</span>
-        <span class="legend-dot light"></span>
-        <span>Light green = air</span>
-      </div>
+      ${legendBlock()}
 
       <div id="shapeGrid" class="grid" aria-label="Minecraft circle grid"></div>
     </div>
@@ -240,7 +417,9 @@ function renderEllipseTab() {
           <label for="ellipseRing">Ring width (blocks)</label>
           <input id="ellipseRing" type="number" min="1" max="50" value="5" />
         </div>
+        ${numberingModeField()}
       </div>
+      ${legendBlock()}
       <div id="shapeGrid" class="grid" aria-label="Minecraft ellipse grid"></div>
     </div>
   `;
@@ -252,7 +431,7 @@ function renderArchTab() {
       <div class="control-panel">
         <div class="field">
           <label for="archWidth">Total Width</label>
-          <input id="archWidth" type="number" min="1" max="200" value="100" />
+          <input id="archWidth" type="number" min="1" max="200" value="80" />
         </div>
         <div class="field">
           <label for="archHeight">Total Height</label>
@@ -270,7 +449,9 @@ function renderArchTab() {
           <label for="archShape">Arch shape</label>
           <input id="archShape" type="number" min="0.5" max="10" step="0.5" value="2" />
         </div>
+        ${numberingModeField()}
       </div>
+      ${legendBlock()}
       <div id="shapeGrid" class="grid" aria-label="Minecraft arch grid"></div>
     </div>
   `;
@@ -288,7 +469,9 @@ function renderDomeTab() {
           <label for="domeHeight">Dome Height</label>
           <input id="domeHeight" type="number" min="1" max="200" value="15" />
         </div>
+        ${numberingModeField()}
       </div>
+      ${legendBlock()}
       <h3 class="section-title">Full Dome Profile</h3>
       <p class="helper-text">Each row shows one horizontal slice; the circle shrinks toward the top.</p>
       <div id="shapeGrid" class="grid" aria-label="Minecraft dome grid"></div>
@@ -338,33 +521,27 @@ function renderTabButtons() {
 }
 
 function bindBuilderInputs() {
+  let refresh = null;
+
   if (activeTab === 'Circle Builder') {
     const diameterInput = document.getElementById('diameter');
     const ringWidthInput = document.getElementById('ringWidth');
     if (!diameterInput || !ringWidthInput) return;
 
-    const refresh = () => buildCircleGrid(diameterInput.value, ringWidthInput.value);
+    refresh = () => buildCircleGrid(diameterInput.value, ringWidthInput.value);
     diameterInput.oninput = refresh;
     ringWidthInput.oninput = refresh;
-    refresh();
-    return;
-  }
-
-  if (activeTab === 'Ellipse Builder') {
+  } else if (activeTab === 'Ellipse Builder') {
     const widthInput = document.getElementById('ellipseWidth');
     const heightInput = document.getElementById('ellipseHeight');
     const ringInput = document.getElementById('ellipseRing');
     if (!widthInput || !heightInput || !ringInput) return;
 
-    const refresh = () => buildEllipseGrid(widthInput.value, heightInput.value, ringInput.value);
+    refresh = () => buildEllipseGrid(widthInput.value, heightInput.value, ringInput.value);
     widthInput.oninput = refresh;
     heightInput.oninput = refresh;
     ringInput.oninput = refresh;
-    refresh();
-    return;
-  }
-
-  if (activeTab === 'Arch Builder') {
+  } else if (activeTab === 'Arch Builder') {
     const widthInput = document.getElementById('archWidth');
     const heightInput = document.getElementById('archHeight');
     const wallInput = document.getElementById('archWall');
@@ -372,29 +549,37 @@ function bindBuilderInputs() {
     const shapeInput = document.getElementById('archShape');
     if (!widthInput || !heightInput || !wallInput || !deckInput || !shapeInput) return;
 
-    const refresh = () => buildArchGrid(widthInput.value, heightInput.value, wallInput.value, deckInput.value, shapeInput.value);
+    refresh = () => buildArchGrid(widthInput.value, heightInput.value, wallInput.value, deckInput.value, shapeInput.value);
     widthInput.oninput = refresh;
     heightInput.oninput = refresh;
     wallInput.oninput = refresh;
     deckInput.oninput = refresh;
     shapeInput.oninput = refresh;
-    refresh();
-    return;
-  }
-
-  if (activeTab === 'Dome Builder') {
+  } else if (activeTab === 'Dome Builder') {
     const diameterInput = document.getElementById('domeDiameter');
     const heightInput = document.getElementById('domeHeight');
     if (!diameterInput || !heightInput) return;
 
-    const refresh = () => {
+    refresh = () => {
       buildDomeGrid(diameterInput.value, heightInput.value);
       buildDomeLayers(diameterInput.value, heightInput.value);
     };
     diameterInput.oninput = refresh;
     heightInput.oninput = refresh;
-    refresh();
   }
+
+  if (!refresh) return;
+
+  const modeSelect = document.getElementById('numberingMode');
+  if (modeSelect) {
+    modeSelect.value = numberingMode;
+    modeSelect.onchange = () => {
+      numberingMode = modeSelect.value;
+      refresh();
+    };
+  }
+
+  refresh();
 }
 
 function renderTabs() {

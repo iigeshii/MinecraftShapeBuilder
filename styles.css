@@ -1,3 +1,9 @@
+/*
+  Minecraft Shape Tool
+  Copyright (c) 2026 GeshGiezel (iigeshii)
+  Licensed under the MIT License. See LICENSE for details.
+*/
+
 :root {
   --bg: #eef3ea;
   --panel: #e6efe0;
@@ -37,6 +43,25 @@ body {
 
 .header {
   padding: 16px 18px 10px;
+}
+
+.footer {
+  padding: 14px 18px 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.footer a {
+  color: var(--dark-green);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.footer a:hover {
+  text-decoration: underline;
 }
 
 h1 {
@@ -95,6 +120,7 @@ h1 {
   gap: 18px;
   align-items: end;
   flex-wrap: wrap;
+  margin-bottom: 8px;
 }
 
 .field {
@@ -109,13 +135,22 @@ label {
   font-weight: 700;
 }
 
-input {
-  width: 110px;
+input,
+select {
+  height: 30px;
   padding: 5px 6px;
   border: 1px solid rgba(23, 46, 38, 0.35);
   background: #f7faf5;
   font-size: 12px;
   color: var(--text);
+}
+
+input {
+  width: 110px;
+}
+
+select {
+  width: 210px;
 }
 
 .legend {
@@ -139,6 +174,11 @@ input {
 
 .legend-dot.light {
   background: var(--light-green);
+}
+
+.legend-dot.center {
+  background: var(--light-green);
+  box-shadow: inset 0 0 0 2px #e0a72e;
 }
 
 .legend-separator {
@@ -171,17 +211,53 @@ input {
 
 .cell.block {
   background: var(--dark-green);
-  color: #fff;
 }
 
 .cell.block-label {
   font-size: 7px;
   font-weight: 700;
+  color: #cdeedd;
   text-shadow: 0 0 1px rgba(0, 0, 0, 0.2);
 }
 
 .cell.air {
   background: var(--light-green);
+}
+
+.cell.air-label {
+  font-size: 7px;
+  font-weight: 700;
+  color: #7fa393;
+}
+
+.cell.center {
+  box-shadow: inset 0 0 0 2px #e0a72e;
+}
+
+.cell.axis-label {
+  background: #16281f;
+  color: #d7e8dd;
+  font-size: 7px;
+  font-weight: 700;
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+.cell.axis-x,
+.cell.axis-y {
+  cursor: pointer;
+}
+
+.cell.axis-x:hover,
+.cell.axis-y:hover {
+  background: #274436;
+}
+
+.cell.dimmed {
+  opacity: 0.25;
+}
+
+.cell.axis-corner {
+  background: #16281f;
 }
 
 .chapter-panel {
