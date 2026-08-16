@@ -1,0 +1,268 @@
+:root {
+  --bg: #eef3ea;
+  --panel: #e6efe0;
+  --panel-strong: #dfead8;
+  --dark-green: #2d6a4f;
+  --dark-green-strong: #1c4d3d;
+  --light-green: #d9ead3;
+  --light-green-2: #edf5eb;
+  --tab-inactive: #d8e6d2;
+  --tab-active: #cfe0c6;
+  --text: #1c3b2f;
+  --muted: #244838;
+  --border: rgba(35, 58, 41, 0.28);
+  --shadow: rgba(22, 32, 24, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app-shell {
+  max-width: 1600px;
+  margin: 18px auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 20px var(--shadow);
+  padding: 0 0 18px;
+}
+
+.header {
+  padding: 16px 18px 10px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tab-btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--tab-inactive);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: var(--tab-active);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 rgba(28, 77, 61, 0.4);
+}
+
+.tab-content {
+  padding: 18px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.builder-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-panel {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+label {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 700;
+}
+
+input {
+  width: 110px;
+  padding: 5px 6px;
+  border: 1px solid rgba(23, 46, 38, 0.35);
+  background: #f7faf5;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.legend-dot.dark {
+  background: var(--dark-green);
+}
+
+.legend-dot.light {
+  background: var(--light-green);
+}
+
+.legend-separator {
+  margin: 0 2px;
+  font-weight: 700;
+}
+
+.grid {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: var(--light-green);
+  width: fit-content;
+  overflow: hidden;
+}
+
+.cell {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--light-green);
+  font-size: 8px;
+  font-weight: 700;
+  color: #fff;
+  user-select: none;
+  line-height: 1;
+}
+
+.cell.block {
+  background: var(--dark-green);
+  color: #fff;
+}
+
+.cell.block-label {
+  font-size: 7px;
+  font-weight: 700;
+  text-shadow: 0 0 1px rgba(0, 0, 0, 0.2);
+}
+
+.cell.air {
+  background: var(--light-green);
+}
+
+.chapter-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  padding: 14px;
+}
+
+.chapter-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.chapter-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.chapter-table th,
+.chapter-table td {
+  border: 1px solid rgba(24, 50, 37, 0.25);
+  padding: 7px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.chapter-table th {
+  background: rgba(45, 106, 79, 0.12);
+  font-weight: 700;
+}
+
+.chapter-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.chapter-table td.code {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.empty-state {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px dashed var(--border);
+  padding: 20px;
+  color: var(--muted);
+}
+
+.section-title {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.helper-text {
+  margin: 0.5rem 0 1rem;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dome-layers-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.dome-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.layer-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--panel-strong);
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
