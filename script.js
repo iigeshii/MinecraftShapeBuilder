@@ -8,7 +8,9 @@ const tabContainer = document.getElementById('tabs');
 const tabContent = document.getElementById('tabContent');
 
 const workbookTabs = ['Circle Builder', 'Ellipse Builder', 'Arch Builder', 'Dome Builder'];
-let activeTab = workbookTabs[0];
+const ACTIVE_TAB_STORAGE_KEY = 'minecraftShapeTool.activeTab';
+const storedTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+let activeTab = workbookTabs.includes(storedTab) ? storedTab : workbookTabs[0];
 let numberingMode = 'ltr';
 
 function numberingModeField() {
@@ -516,6 +518,7 @@ function renderTabButtons() {
   tabContainer.querySelectorAll('.tab-btn').forEach((button) => {
     button.addEventListener('click', () => {
       activeTab = button.dataset.tab;
+      localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
       renderTabs();
     });
   });
