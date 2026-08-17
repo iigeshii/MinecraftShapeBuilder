@@ -261,6 +261,40 @@ select {
   opacity: 0.25;
 }
 
+.cell.block,
+.cell.air {
+  cursor: pointer;
+}
+
+.cell.block:hover,
+.cell.air:hover {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+}
+
+.cell.hl-1,
+.cell.hl-2,
+.cell.hl-3,
+.cell.hl-4 {
+  color: #fff;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.65);
+}
+
+.cell.hl-1 {
+  background: #c0392b;
+}
+
+.cell.hl-2 {
+  background: #2563eb;
+}
+
+.cell.hl-3 {
+  background: #7c3aed;
+}
+
+.cell.hl-4 {
+  background: #d97706;
+}
+
 .cell.axis-corner {
   background: #16281f;
 }

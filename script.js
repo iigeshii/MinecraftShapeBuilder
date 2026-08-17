@@ -219,6 +219,9 @@ function numberRuns(matrix, mode = 'ltr') {
   return numbered;
 }
 
+const HIGHLIGHT_COLOR_COUNT = 4;
+const HIGHLIGHT_CLASSES = Array.from({ length: HIGHLIGHT_COLOR_COUNT }, (_, i) => `hl-${i + 1}`);
+
 function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
   if (!grid) return;
 
@@ -231,9 +234,9 @@ function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
   const centerColHigh = Math.ceil((cols - 1) / 2);
 
   if (!grid._dimState || grid._dimState.rows !== rows || grid._dimState.cols !== cols) {
-    grid._dimState = { rows, cols, dimmedRows: new Set(), dimmedCols: new Set() };
+    grid._dimState = { rows, cols, dimmedRows: new Set(), dimmedCols: new Set(), highlights: new Map() };
   }
-  const { dimmedRows, dimmedCols } = grid._dimState;
+  const { dimmedRows, dimmedCols, highlights } = grid._dimState;
 
   grid.style.gridTemplateColumns = `18px repeat(${cols}, 18px)`;
   grid.innerHTML = '';
@@ -261,8 +264,10 @@ function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
       const cellData = matrix[row][col];
       const isCenter = (row === centerRowLow || row === centerRowHigh) && (col === centerColLow || col === centerColHigh);
       const isDimmed = dimmedRows.has(String(row)) || dimmedCols.has(String(col));
+      const highlightIndex = highlights.get(`${row},${col}`);
+      const highlightClass = highlightIndex ? ` ${HIGHLIGHT_CLASSES[highlightIndex - 1]}` : '';
       const cell = document.createElement('div');
-      cell.className = `cell ${cellData.isBlock ? 'block' : 'air'} ${cellData.isBlock ? 'block-label' : 'air-label'}${isCenter ? ' center' : ''}${isDimmed ? ' dimmed' : ''}`;
+      cell.className = `cell ${cellData.isBlock ? 'block' : 'air'} ${cellData.isBlock ? 'block-label' : 'air-label'}${isCenter ? ' center' : ''}${isDimmed ? ' dimmed' : ''}${highlightClass}`;
       cell.textContent = cellData.label || '';
       cell.dataset.row = row;
       cell.dataset.col = col;
@@ -273,23 +278,48 @@ function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
 
   grid.onclick = (event) => {
     const header = event.target.closest('.axis-x, .axis-y');
-    if (!header) return;
-
-    if (header.classList.contains('axis-x')) {
-      const col = header.dataset.col;
-      dimmedCols.has(col) ? dimmedCols.delete(col) : dimmedCols.add(col);
-      grid.querySelectorAll(`[data-col="${col}"]`).forEach((cell) => {
-        const dim = dimmedCols.has(col) || dimmedRows.has(cell.dataset.row);
-        cell.classList.toggle('dimmed', dim);
-      });
-    } else {
-      const row = header.dataset.row;
-      dimmedRows.has(row) ? dimmedRows.delete(row) : dimmedRows.add(row);
-      grid.querySelectorAll(`[data-row="${row}"]`).forEach((cell) => {
-        const dim = dimmedRows.has(row) || dimmedCols.has(cell.dataset.col);
-        cell.classList.toggle('dimmed', dim);
-      });
+    if (header) {
+      if (header.classList.contains('axis-x')) {
+        const col = header.dataset.col;
+        dimmedCols.has(col) ? dimmedCols.delete(col) : dimmedCols.add(col);
+        grid.querySelectorAll(`[data-col="${col}"]`).forEach((cell) => {
+          const dim = dimmedCols.has(col) || dimmedRows.has(cell.dataset.row);
+          cell.classList.toggle('dimmed', dim);
+        });
+      } else {
+        const row = header.dataset.row;
+        dimmedRows.has(row) ? dimmedRows.delete(row) : dimmedRows.add(row);
+        grid.querySelectorAll(`[data-row="${row}"]`).forEach((cell) => {
+          const dim = dimmedRows.has(row) || dimmedCols.has(cell.dataset.col);
+          cell.classList.toggle('dimmed', dim);
+        });
+      }
+      return;
     }
+
+    const cell = event.target.closest('.cell.block, .cell.air');
+    if (!cell) return;
+
+    const key = `${cell.dataset.row},${cell.dataset.col}`;
+    const nextIndex = ((highlights.get(key) || 0) + 1) % (HIGHLIGHT_COLOR_COUNT + 1);
+    cell.classList.remove(...HIGHLIGHT_CLASSES);
+    if (nextIndex === 0) {
+      highlights.delete(key);
+    } else {
+      highlights.set(key, nextIndex);
+      cell.classList.add(HIGHLIGHT_CLASSES[nextIndex - 1]);
+    }
+  };
+
+  grid.oncontextmenu = (event) => {
+    const cell = event.target.closest('.cell.block, .cell.air');
+    if (!cell) return;
+    event.preventDefault();
+
+    const key = `${cell.dataset.row},${cell.dataset.col}`;
+    if (!highlights.has(key)) return;
+    highlights.delete(key);
+    cell.classList.remove(...HIGHLIGHT_CLASSES);
   };
 }
 
@@ -457,7 +487,7 @@ function legendBlock() {
       <span class="legend-dot center"></span>
       <span>Amber outline = center block</span>
     </div>
-    <p class="helper-text">Click a row or column header to gray it out and track your progress in-game.</p>
+    <p class="helper-text">Click a row or column header to gray it out and track your progress in-game. Click a block/air cell to cycle through highlight colors for planning; right-click a highlighted cell to clear it.</p>
   `;
 }
 
