@@ -9,9 +9,62 @@ const tabContent = document.getElementById('tabContent');
 
 const workbookTabs = ['Circle Builder', 'Ellipse Builder', 'Arch Builder', 'Dome Builder'];
 const ACTIVE_TAB_STORAGE_KEY = 'minecraftShapeTool.activeTab';
+const VALID_NUMBERING_MODES = [
+  'ltr', 'rtl', 'ttb', 'btt',
+  'center-col', 'center-col-to', 'center-row', 'center-row-to',
+  'radial', 'radial-to',
+];
+
+const DEFAULT_PARAMS = {
+  diameter: '35',
+  ringWidth: '3',
+  ellipseWidth: '50',
+  ellipseHeight: '20',
+  ellipseRing: '5',
+  archWidth: '80',
+  archHeight: '20',
+  archWall: '2',
+  archDeck: '2',
+  archShape: '2',
+  domeDiameter: '20',
+  domeRing: '3',
+  domeHeight: '15',
+  domeShape: '2',
+  mode: 'ltr',
+};
+
+function sanitizeNumberParam(value, fallback) {
+  const num = Number(value);
+  return Number.isFinite(num) ? String(num) : fallback;
+}
+
+const urlParams = new URLSearchParams(location.search);
+const paramState = { ...DEFAULT_PARAMS };
+Object.keys(DEFAULT_PARAMS).forEach((key) => {
+  if (!urlParams.has(key)) return;
+  if (key === 'mode') {
+    const mode = urlParams.get('mode');
+    paramState.mode = VALID_NUMBERING_MODES.includes(mode) ? mode : DEFAULT_PARAMS.mode;
+  } else {
+    paramState[key] = sanitizeNumberParam(urlParams.get(key), DEFAULT_PARAMS[key]);
+  }
+});
+
+const urlTab = urlParams.get('tab');
 const storedTab = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-let activeTab = workbookTabs.includes(storedTab) ? storedTab : workbookTabs[0];
-let numberingMode = 'ltr';
+let activeTab = workbookTabs.includes(urlTab)
+  ? urlTab
+  : (workbookTabs.includes(storedTab) ? storedTab : workbookTabs[0]);
+let numberingMode = paramState.mode;
+
+function syncUrl() {
+  const params = new URLSearchParams();
+  params.set('tab', activeTab);
+  Object.keys(DEFAULT_PARAMS).forEach((key) => {
+    params.set(key, paramState[key]);
+  });
+  history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+}
 
 function numberingModeField() {
   return `
@@ -414,11 +467,11 @@ function renderCircleTab() {
       <div class="control-panel">
         <div class="field">
           <label for="diameter">Diameter (blocks)</label>
-          <input id="diameter" type="number" min="1" max="200" value="35" />
+          <input id="diameter" type="number" min="1" max="200" value="${paramState.diameter}" />
         </div>
         <div class="field">
           <label for="ringWidth">Ring width (blocks)</label>
-          <input id="ringWidth" type="number" min="1" max="50" value="3" />
+          <input id="ringWidth" type="number" min="1" max="50" value="${paramState.ringWidth}" />
         </div>
         ${numberingModeField()}
       </div>
@@ -436,15 +489,15 @@ function renderEllipseTab() {
       <div class="control-panel">
         <div class="field">
           <label for="ellipseWidth">Width (blocks)</label>
-          <input id="ellipseWidth" type="number" min="1" max="200" value="50" />
+          <input id="ellipseWidth" type="number" min="1" max="200" value="${paramState.ellipseWidth}" />
         </div>
         <div class="field">
           <label for="ellipseHeight">Height (blocks)</label>
-          <input id="ellipseHeight" type="number" min="1" max="200" value="20" />
+          <input id="ellipseHeight" type="number" min="1" max="200" value="${paramState.ellipseHeight}" />
         </div>
         <div class="field">
           <label for="ellipseRing">Ring width (blocks)</label>
-          <input id="ellipseRing" type="number" min="1" max="50" value="5" />
+          <input id="ellipseRing" type="number" min="1" max="50" value="${paramState.ellipseRing}" />
         </div>
         ${numberingModeField()}
       </div>
@@ -460,23 +513,23 @@ function renderArchTab() {
       <div class="control-panel">
         <div class="field">
           <label for="archWidth">Total Width</label>
-          <input id="archWidth" type="number" min="1" max="200" value="80" />
+          <input id="archWidth" type="number" min="1" max="200" value="${paramState.archWidth}" />
         </div>
         <div class="field">
           <label for="archHeight">Total Height</label>
-          <input id="archHeight" type="number" min="1" max="200" value="20" />
+          <input id="archHeight" type="number" min="1" max="200" value="${paramState.archHeight}" />
         </div>
         <div class="field">
           <label for="archWall">Wall thickness</label>
-          <input id="archWall" type="number" min="1" max="50" value="2" />
+          <input id="archWall" type="number" min="1" max="50" value="${paramState.archWall}" />
         </div>
         <div class="field">
           <label for="archDeck">Deck thickness</label>
-          <input id="archDeck" type="number" min="1" max="50" value="2" />
+          <input id="archDeck" type="number" min="1" max="50" value="${paramState.archDeck}" />
         </div>
         <div class="field">
           <label for="archShape">Arch shape</label>
-          <input id="archShape" type="number" min="0.5" max="10" step="0.5" value="2" />
+          <input id="archShape" type="number" min="0.5" max="10" step="0.5" value="${paramState.archShape}" />
         </div>
         ${numberingModeField()}
       </div>
@@ -492,19 +545,19 @@ function renderDomeTab() {
       <div class="control-panel">
         <div class="field">
           <label for="domeDiameter">Base Diameter</label>
-          <input id="domeDiameter" type="number" min="1" max="200" value="20" />
+          <input id="domeDiameter" type="number" min="1" max="200" value="${paramState.domeDiameter}" />
         </div>
         <div class="field">
           <label for="domeRing">Ring width (blocks)</label>
-          <input id="domeRing" type="number" min="1" max="50" value="3" />
+          <input id="domeRing" type="number" min="1" max="50" value="${paramState.domeRing}" />
         </div>
         <div class="field">
           <label for="domeHeight">Dome Height</label>
-          <input id="domeHeight" type="number" min="1" max="200" value="15" />
+          <input id="domeHeight" type="number" min="1" max="200" value="${paramState.domeHeight}" />
         </div>
         <div class="field">
           <label for="domeShape">Steepness</label>
-          <input id="domeShape" type="number" min="0.5" max="10" step="0.1" value="2" />
+          <input id="domeShape" type="number" min="0.5" max="10" step="0.1" value="${paramState.domeShape}" />
         </div>
         ${numberingModeField()}
       </div>
@@ -553,9 +606,18 @@ function renderTabButtons() {
     button.addEventListener('click', () => {
       activeTab = button.dataset.tab;
       localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, activeTab);
+      syncUrl();
       renderTabs();
     });
   });
+}
+
+function withSync(input, refresh) {
+  input.oninput = () => {
+    paramState[input.id] = sanitizeNumberParam(input.value, DEFAULT_PARAMS[input.id]);
+    syncUrl();
+    refresh();
+  };
 }
 
 function bindBuilderInputs() {
@@ -567,8 +629,8 @@ function bindBuilderInputs() {
     if (!diameterInput || !ringWidthInput) return;
 
     refresh = () => buildCircleGrid(diameterInput.value, ringWidthInput.value);
-    diameterInput.oninput = refresh;
-    ringWidthInput.oninput = refresh;
+    withSync(diameterInput, refresh);
+    withSync(ringWidthInput, refresh);
   } else if (activeTab === 'Ellipse Builder') {
     const widthInput = document.getElementById('ellipseWidth');
     const heightInput = document.getElementById('ellipseHeight');
@@ -576,9 +638,9 @@ function bindBuilderInputs() {
     if (!widthInput || !heightInput || !ringInput) return;
 
     refresh = () => buildEllipseGrid(widthInput.value, heightInput.value, ringInput.value);
-    widthInput.oninput = refresh;
-    heightInput.oninput = refresh;
-    ringInput.oninput = refresh;
+    withSync(widthInput, refresh);
+    withSync(heightInput, refresh);
+    withSync(ringInput, refresh);
   } else if (activeTab === 'Arch Builder') {
     const widthInput = document.getElementById('archWidth');
     const heightInput = document.getElementById('archHeight');
@@ -588,11 +650,11 @@ function bindBuilderInputs() {
     if (!widthInput || !heightInput || !wallInput || !deckInput || !shapeInput) return;
 
     refresh = () => buildArchGrid(widthInput.value, heightInput.value, wallInput.value, deckInput.value, shapeInput.value);
-    widthInput.oninput = refresh;
-    heightInput.oninput = refresh;
-    wallInput.oninput = refresh;
-    deckInput.oninput = refresh;
-    shapeInput.oninput = refresh;
+    withSync(widthInput, refresh);
+    withSync(heightInput, refresh);
+    withSync(wallInput, refresh);
+    withSync(deckInput, refresh);
+    withSync(shapeInput, refresh);
   } else if (activeTab === 'Dome Builder') {
     const diameterInput = document.getElementById('domeDiameter');
     const ringInput = document.getElementById('domeRing');
@@ -604,10 +666,10 @@ function bindBuilderInputs() {
       buildDomeGrid(diameterInput.value, heightInput.value, shapeInput.value);
       buildDomeLayers(diameterInput.value, heightInput.value, shapeInput.value, ringInput.value);
     };
-    diameterInput.oninput = refresh;
-    ringInput.oninput = refresh;
-    heightInput.oninput = refresh;
-    shapeInput.oninput = refresh;
+    withSync(diameterInput, refresh);
+    withSync(ringInput, refresh);
+    withSync(heightInput, refresh);
+    withSync(shapeInput, refresh);
   }
 
   if (!refresh) return;
@@ -617,6 +679,8 @@ function bindBuilderInputs() {
     modeSelect.value = numberingMode;
     modeSelect.onchange = () => {
       numberingMode = modeSelect.value;
+      paramState.mode = numberingMode;
+      syncUrl();
       refresh();
     };
   }
@@ -631,3 +695,4 @@ function renderTabs() {
 }
 
 renderTabs();
+syncUrl();
