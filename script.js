@@ -240,20 +240,23 @@ function renderMatrix(matrix, grid = document.getElementById('shapeGrid')) {
   };
 }
 
-function buildCircleGrid(diameter, ringWidth) {
-  const size = Math.max(1, Number(diameter) || 35);
-  const thickness = Math.max(1, Number(ringWidth) || 3);
+function buildCircleMatrix(diameter, ringWidth) {
+  const size = Math.max(1, diameter);
+  const thickness = Math.max(1, ringWidth);
   const center = (size - 1) / 2;
+  const outerRadius = size / 2;
+  const innerRadius = outerRadius - thickness;
 
-  const matrix = makeGridFromPredicate(size, size, (row, col) => {
+  return makeGridFromPredicate(size, size, (row, col) => {
     const dx = col - center;
     const dy = row - center;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const outerRadius = size / 2;
-    const innerRadius = outerRadius - thickness;
     return distance <= outerRadius && distance > innerRadius;
   });
+}
 
+function buildCircleGrid(diameter, ringWidth) {
+  const matrix = buildCircleMatrix(Math.max(1, Number(diameter) || 35), Math.max(1, Number(ringWidth) || 3));
   renderMatrix(numberRuns(matrix, numberingMode));
 }
 
@@ -300,70 +303,93 @@ function buildArchGrid(totalWidth, totalHeight, wallThickness, deckThickness, sh
   renderMatrix(numberRuns(matrix, numberingMode));
 }
 
-function buildDomeGrid(baseDiameter, domeHeight) {
+function computeDomeLevels(baseDiameter, domeHeight, domeShape) {
   const base = Math.max(3, Number(baseDiameter) || 20);
   const height = Math.max(2, Number(domeHeight) || 15);
-  const radius = base / 2;
-  const rows = Math.max(2, height);
-  const cols = Math.max(base + 4, 24);
-  const cx = (cols - 1) / 2;
+  const shape = Math.max(0.5, Number(domeShape) || 2);
+  const parity = base % 2;
+  const minDiameter = parity === 0 ? 2 : 1;
 
-  const matrix = makeGridFromPredicate(cols, rows, (row, col) => {
-    const normalizedY = (rows - 1 - row) / Math.max(rows - 1, 1);
-    const yOffset = normalizedY * radius;
-    const sliceRadius = Math.sqrt(Math.max(0, radius * radius - yOffset * yOffset));
-    const dx = Math.abs(col - cx);
-    return dx <= sliceRadius + 0.5;
+  const levels = [];
+  for (let i = 0; i < height; i += 1) {
+    const normalizedY = i / Math.max(height - 1, 1);
+    const curve = Math.pow(Math.max(0, 1 - Math.pow(normalizedY, shape)), 1 / shape);
+    let diameter = Math.round(base * curve);
+    if (diameter % 2 !== parity) diameter -= 1;
+    diameter = Math.max(minDiameter, diameter);
+    levels.push({ level: i + 1, diameter });
+  }
+  return levels;
+}
+
+function centeredStart(canvasSize, size) {
+  const cx = (canvasSize - 1) / 2;
+  const localCenter = (size - 1) / 2;
+  return Math.round(cx - localCenter);
+}
+
+function centerMatrixInCanvas(matrix, canvasSize) {
+  const size = matrix.length;
+  const offset = centeredStart(canvasSize, size);
+  const canvas = Array.from({ length: canvasSize }, () => Array(canvasSize).fill(false));
+
+  for (let row = 0; row < size; row += 1) {
+    const targetRow = row + offset;
+    if (targetRow < 0 || targetRow >= canvasSize) continue;
+    for (let col = 0; col < size; col += 1) {
+      const targetCol = col + offset;
+      if (targetCol < 0 || targetCol >= canvasSize) continue;
+      canvas[targetRow][targetCol] = matrix[row][col];
+    }
+  }
+
+  return canvas;
+}
+
+function buildDomeGrid(baseDiameter, domeHeight, domeShape) {
+  const base = Math.max(3, Number(baseDiameter) || 20);
+  const levels = computeDomeLevels(baseDiameter, domeHeight, domeShape);
+  const topToBase = [...levels].reverse();
+  const cols = base + 4;
+
+  const matrix = makeGridFromPredicate(cols, topToBase.length, (row, col) => {
+    const { diameter } = topToBase[row];
+    const start = centeredStart(cols, diameter);
+    return col >= start && col < start + diameter;
   });
 
   renderMatrix(numberRuns(matrix, numberingMode));
 }
 
-function buildDomeLayers(baseDiameter, domeHeight) {
+function buildDomeLayers(baseDiameter, domeHeight, domeShape, ringWidth) {
   const base = Math.max(3, Number(baseDiameter) || 20);
-  const height = Math.max(2, Number(domeHeight) || 15);
-  const radius = base / 2;
-  const rows = Math.max(2, height);
-  const gridSize = Math.max(base + 4, 24);
-  const cx = (gridSize - 1) / 2;
+  const thickness = Math.max(1, Number(ringWidth) || 3);
+  const levels = computeDomeLevels(baseDiameter, domeHeight, domeShape);
+  const canvasSize = base + 4;
   const layersContainer = document.getElementById('domeLayers');
   if (!layersContainer) return;
 
   layersContainer.innerHTML = '';
 
-  for (let level = 1; level <= rows; level += 1) {
-    const layer = rows - level;
-    const normalizedY = (rows - 1 - layer) / Math.max(rows - 1, 1);
-    const yOffset = normalizedY * radius;
-    const sliceRadius = Math.sqrt(Math.max(0, radius * radius - yOffset * yOffset));
-    const sliceDiameter = Math.max(1, Math.round(sliceRadius * 2));
-
+  levels.forEach(({ level, diameter }) => {
     const layerDiv = document.createElement('div');
     layerDiv.className = 'dome-layer';
 
     const label = document.createElement('div');
     label.className = 'layer-label';
-    label.textContent = `Level ${level} (diameter: ${sliceDiameter})`;
+    label.textContent = `Level ${level} (diameter: ${diameter})`;
 
     const layerGrid = document.createElement('div');
     layerGrid.className = 'grid';
 
-    const outerRadius = sliceDiameter / 2;
-    const innerRadius = outerRadius > 1 ? outerRadius - 1 : -1;
-
-    const matrix = makeGridFromPredicate(gridSize, gridSize, (row, col) => {
-      const dx = col - cx;
-      const dy = row - cx;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance <= outerRadius + 0.5 && distance > innerRadius;
-    });
-
+    const circleMatrix = buildCircleMatrix(diameter, thickness);
+    const matrix = centerMatrixInCanvas(circleMatrix, canvasSize);
     renderMatrix(numberRuns(matrix, numberingMode), layerGrid);
 
     layerDiv.appendChild(label);
     layerDiv.appendChild(layerGrid);
     layersContainer.appendChild(layerDiv);
-  }
+  });
 }
 
 function legendBlock() {
@@ -469,8 +495,16 @@ function renderDomeTab() {
           <input id="domeDiameter" type="number" min="1" max="200" value="20" />
         </div>
         <div class="field">
+          <label for="domeRing">Ring width (blocks)</label>
+          <input id="domeRing" type="number" min="1" max="50" value="3" />
+        </div>
+        <div class="field">
           <label for="domeHeight">Dome Height</label>
           <input id="domeHeight" type="number" min="1" max="200" value="15" />
+        </div>
+        <div class="field">
+          <label for="domeShape">Steepness</label>
+          <input id="domeShape" type="number" min="0.5" max="10" step="0.1" value="2" />
         </div>
         ${numberingModeField()}
       </div>
@@ -561,15 +595,19 @@ function bindBuilderInputs() {
     shapeInput.oninput = refresh;
   } else if (activeTab === 'Dome Builder') {
     const diameterInput = document.getElementById('domeDiameter');
+    const ringInput = document.getElementById('domeRing');
     const heightInput = document.getElementById('domeHeight');
-    if (!diameterInput || !heightInput) return;
+    const shapeInput = document.getElementById('domeShape');
+    if (!diameterInput || !ringInput || !heightInput || !shapeInput) return;
 
     refresh = () => {
-      buildDomeGrid(diameterInput.value, heightInput.value);
-      buildDomeLayers(diameterInput.value, heightInput.value);
+      buildDomeGrid(diameterInput.value, heightInput.value, shapeInput.value);
+      buildDomeLayers(diameterInput.value, heightInput.value, shapeInput.value, ringInput.value);
     };
     diameterInput.oninput = refresh;
+    ringInput.oninput = refresh;
     heightInput.oninput = refresh;
+    shapeInput.oninput = refresh;
   }
 
   if (!refresh) return;
