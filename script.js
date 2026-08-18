@@ -7,7 +7,7 @@
 const tabContainer = document.getElementById('tabs');
 const tabContent = document.getElementById('tabContent');
 
-const workbookTabs = ['Circle Builder', 'Ellipse Builder', 'Arch Builder', 'Dome Builder'];
+const workbookTabs = ['Circle Builder', 'Ellipse Builder', 'Arch Builder', 'Dome Builder', 'Sphere Builder'];
 const ACTIVE_TAB_STORAGE_KEY = 'minecraftShapeTool.activeTab';
 const VALID_NUMBERING_MODES = [
   'ltr', 'rtl', 'ttb', 'btt',
@@ -30,6 +30,9 @@ const DEFAULT_PARAMS = {
   domeRing: '3',
   domeHeight: '15',
   domeShape: '2',
+  sphereDiameter: '20',
+  sphereRing: '3',
+  sphereShape: '2',
   mode: 'ltr',
 };
 
@@ -475,6 +478,72 @@ function buildDomeLayers(baseDiameter, domeHeight, domeShape, ringWidth) {
   });
 }
 
+function computeSphereLevels(baseDiameter, shapeFactor) {
+  const base = Math.max(3, Number(baseDiameter) || 20);
+  const shape = Math.max(0.5, Number(shapeFactor) || 2);
+  const parity = base % 2;
+  const minDiameter = parity === 0 ? 2 : 1;
+  const rows = base;
+  const center = (rows - 1) / 2;
+
+  const levels = [];
+  for (let i = 0; i < rows; i += 1) {
+    const normalizedY = Math.abs(i - center) / center;
+    const curve = Math.pow(Math.max(0, 1 - Math.pow(normalizedY, shape)), 1 / shape);
+    let diameter = Math.round(base * curve);
+    if (diameter % 2 !== parity) diameter -= 1;
+    diameter = Math.max(minDiameter, diameter);
+    levels.push({ level: i + 1, diameter });
+  }
+  return levels;
+}
+
+function buildSphereGrid(baseDiameter, sphereShape) {
+  const base = Math.max(3, Number(baseDiameter) || 20);
+  const levels = computeSphereLevels(base, sphereShape);
+  const topToBottom = [...levels].reverse();
+  const cols = base + 4;
+
+  const matrix = makeGridFromPredicate(cols, topToBottom.length, (row, col) => {
+    const { diameter } = topToBottom[row];
+    const start = centeredStart(cols, diameter);
+    return col >= start && col < start + diameter;
+  });
+
+  renderMatrix(numberRuns(matrix, numberingMode));
+}
+
+function buildSphereLayers(baseDiameter, sphereShape, ringWidth) {
+  const base = Math.max(3, Number(baseDiameter) || 20);
+  const thickness = Math.max(1, Number(ringWidth) || 3);
+  const levels = computeSphereLevels(base, sphereShape);
+  const canvasSize = base + 4;
+  const layersContainer = document.getElementById('sphereLayers');
+  if (!layersContainer) return;
+
+  layersContainer.innerHTML = '';
+
+  levels.forEach(({ level, diameter }) => {
+    const layerDiv = document.createElement('div');
+    layerDiv.className = 'dome-layer';
+
+    const label = document.createElement('div');
+    label.className = 'layer-label';
+    label.textContent = `Level ${level} (diameter: ${diameter})`;
+
+    const layerGrid = document.createElement('div');
+    layerGrid.className = 'grid';
+
+    const circleMatrix = buildCircleMatrix(diameter, thickness);
+    const matrix = centerMatrixInCanvas(circleMatrix, canvasSize);
+    renderMatrix(numberRuns(matrix, numberingMode), layerGrid);
+
+    layerDiv.appendChild(label);
+    layerDiv.appendChild(layerGrid);
+    layersContainer.appendChild(layerDiv);
+  });
+}
+
 function legendBlock() {
   return `
     <div class="legend">
@@ -602,6 +671,37 @@ function renderDomeTab() {
   `;
 }
 
+function renderSphereTab() {
+  return `
+    <div class="tab-panel active builder-panel">
+      <div class="control-panel">
+        <div class="field">
+          <label for="sphereDiameter">Diameter (blocks)</label>
+          <input id="sphereDiameter" type="number" min="3" max="200" value="${paramState.sphereDiameter}" />
+        </div>
+        <div class="field">
+          <label for="sphereRing">Ring width (blocks)</label>
+          <input id="sphereRing" type="number" min="1" max="50" value="${paramState.sphereRing}" />
+        </div>
+        <div class="field">
+          <label for="sphereShape">Steepness</label>
+          <input id="sphereShape" type="number" min="0.5" max="10" step="0.1" value="${paramState.sphereShape}" />
+        </div>
+        ${numberingModeField()}
+      </div>
+
+      ${legendBlock()}
+
+      <h3 class="section-title">Full Sphere Profile</h3>
+      <p class="helper-text">Each row shows one horizontal slice; the circle grows toward the equator and shrinks toward each pole.</p>
+      <div class="grid-scroll"><div id="shapeGrid" class="grid" aria-label="Minecraft sphere grid"></div></div>
+      <h3 class="section-title" style="margin-top: 2rem;">Layer Breakdown</h3>
+      <p class="helper-text">Individual circle for each building level:</p>
+      <div id="sphereLayers" class="dome-layers-container" aria-label="Sphere layers breakdown"></div>
+    </div>
+  `;
+}
+
 function renderWorkbookTab(tabName) {
   switch (tabName) {
     case 'Circle Builder':
@@ -612,6 +712,8 @@ function renderWorkbookTab(tabName) {
       return renderArchTab();
     case 'Dome Builder':
       return renderDomeTab();
+    case 'Sphere Builder':
+      return renderSphereTab();
     default:
       return renderCircleTab();
   }
@@ -699,6 +801,19 @@ function bindBuilderInputs() {
     withSync(diameterInput, refresh);
     withSync(ringInput, refresh);
     withSync(heightInput, refresh);
+    withSync(shapeInput, refresh);
+  } else if (activeTab === 'Sphere Builder') {
+    const diameterInput = document.getElementById('sphereDiameter');
+    const ringInput = document.getElementById('sphereRing');
+    const shapeInput = document.getElementById('sphereShape');
+    if (!diameterInput || !ringInput || !shapeInput) return;
+
+    refresh = () => {
+      buildSphereGrid(diameterInput.value, shapeInput.value);
+      buildSphereLayers(diameterInput.value, shapeInput.value, ringInput.value);
+    };
+    withSync(diameterInput, refresh);
+    withSync(ringInput, refresh);
     withSync(shapeInput, refresh);
   }
 
